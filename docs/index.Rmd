@@ -1,0 +1,256 @@
+---
+title: "Network Mapping Wireframe"
+author: "Sankofa Consulting, LLC"
+date: "2025-06-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(igraph)
+library(networkD3)
+library(htmlwidgets)
+library(pander)
+library(scales)
+```
+
+# Program A & B - Preliminary Findings from a Network Analysis of 2025 Survey Data
+
+```{r Load & Prep Data, include=FALSE}
+# Loading dataset
+lln_any_int <- read_csv('/Users/Christian/Desktop/Sankofa/WSI/Survey Data/Network_Data_Any_Int.csv')
+
+# Adding an "in partnershp" flag for interactions within partnership
+lln_any_int$in_part = as.integer(lln_any_int$partnership_f == lln_any_int$partnership_t)
+
+# Adding an "in partnership type" flag for interactions within partnership type
+lln_any_int$in_part_type = as.integer(lln_any_int$horizons_f == lln_any_int$horizons_t)
+
+# Zero-indexing id columns
+lln_any_int <- lln_any_int %>% mutate(across(c(row_id, from_id, to_id), ~  . - 1))
+
+# Generating nodes from source data to conform to NetworkD3 reqs
+from <- lln_any_int %>% select(from, horizons_f) %>%
+  mutate %>% rename(name = from,
+                    horizons = horizons_f)
+
+to <- lln_any_int %>% select(to, horizons_t) %>%
+  mutate %>% rename(name = to,
+                    horizons = horizons_t)
+
+
+nodes <- rbind(from, to) %>% unique(stringsAsFactors = FALSE)
+
+# Generating a few network stats
+
+# Responses
+to %>% select(name) %>% n_distinct()
+
+# Network size - 150 members
+nrow(nodes)
+
+# Density (connections / possible connections) - 3.31%
+nrow(lln_any_int)/(nrow(nodes)*(nrow(nodes)-1))
+
+# Degree centrality
+edge_count <- to %>% 
+  group_by(name) %>%
+  summarise(edges = n())
+
+nodes <- nodes %>% left_join(edge_count) 
+
+# Betweenness centrality
+edges_lln <- lln_any_int %>% select(from, to)
+
+edges_graph <- graph_from_edgelist(as.matrix(edges_lln), directed = T)
+
+V(edges_graph)$betweenness <- betweenness(edges_graph, directed = F)
+
+nodes$betweenness <- betweenness(edges_graph, directed = F)
+
+# Closeness
+closeness(edges_graph)
+
+nodes$closeness <- closeness(edges_graph)
+
+# Anonymizing
+nodes$horizons[nodes$horizons == "Horizons"] <- "Program A"
+nodes$horizons[nodes$horizons == "Limitless"] <- "Program B"
+nodes$name <- substr(nodes$name, start = 1, stop = 3)
+
+lln_any_int$horizons_f[lln_any_int$horizons_f == "Horizons"] <- "Program A"
+lln_any_int$horizons_f[lln_any_int$horizons_f == "Limitless"] <- "Program B"
+```
+
+## Network Statistics
+
+### Overall
+Programs A and B were implemented in 2024, and rely heavily on networks for their theories of action. Since implementation, there has been some turnover, the impacts of which will be reflected in 2026 survey responses. In 2025, out of a total of `r nrow(nodes)` network members, there were `r to %>% select(name) %>% n_distinct()` respondents who provided the identifying information necessary for network mapping. Across this network, there were a total of `r nrow(lln_any_int)` unique connections between any two members, yielding a network density of `r round(nrow(lln_any_int)/(nrow(nodes)*(nrow(nodes)-1))*100, digits = 2)`%. This means that there is a `r round(nrow(lln_any_int)/(nrow(nodes)*(nrow(nodes)-1))*100, digits = 2)`% chance that any two members interacted with one another.
+
+### By partnership type - Program A vs. Program B
+Within the 26 partnerships represented in the Program Network, there were four partnerships participating in Program A. These four partnerships received substantial investments designed to increase their data capacity and drive successful post-secondary transition outcomes for students. Of the `r nrow(nodes)` network members, `r nodes %>% filter(horizons == "Program A") %>% nrow()` (`r round(((nodes %>% filter(horizons == "Program A") %>% nrow())/nrow(nodes))*100, digits = 2)`%) were members of partnerships participating in Program A. The table below presents the average number of unique connections within and across partnerships by program.
+
+```{r Table of Connections within and across Partnerships by Program, echo=FALSE}
+# Let's collapse these variables in a pander table:
+lln_any_int_label <- lln_any_int %>% mutate(Program = horizons_f)
+
+panderOptions('round',2)
+lln_any_int_label %>% select(Program, in_part, in_part_type, from) %>%
+  group_by(Program) %>% 
+  summarize(`Members` = n_distinct(from),
+            `Total Connections` = n(),
+            `Connections per Member` = (n()/n_distinct(from)),
+            `% within Partnership` = percent(mean(in_part), accuracy = .01),
+            `% within Program` =  percent(mean(in_part_type), accuracy = .01),
+            .groups = "rowwise") %>% 
+  arrange(`Members`) %>% 
+  pander(style = "rmarkdown", caption = "Connection Statistics by Program", split.tables = 150)
+```
+
+## Measures of Centrality
+There are several commonly used measures of centrality, with each reflecting a different element of a member's role within a network. Because each metric captures a different part of the story, a network member may have a high value for one and a low value for another. Therefore, it is important to evaluate them in tandem when determining a network narrative.
+
+### Degree
+Degree centrality is the most straightforward of these metrics. Degree centrality reflects the raw number of connections (or "edges") for each member (or "node"). This tally enables us to understand which members are engaging with the greatest number of other members of the network. Conversely, low degree centrality can be used to identify who might not currently have a seat at the table or who could benefit from greater engagement. While degree centrality serves to identify which members of a network are engaging with the most people, it does not necessarily speak to the quality or frequency of those engagements The table below presents the 5 network members with the most connections, including those within and across partnerships.
+
+```{r Table of Degree Centrality, echo=FALSE}
+# Let's collapse these variables in a pander table for degree centrality:
+panderOptions('round',2)
+nodes %>% select(name, horizons, edges) %>% 
+  mutate %>% rename(Name = name,
+                    Connections = edges,
+                    `Partnership Type` = horizons) %>% 
+  arrange(desc(`Connections`)) %>%
+  head(5) %>% 
+  pander(style = "rmarkdown", caption = "Network Members with the Most Connections", split.tables = 150)
+```
+
+### Betweenness
+Betweenness measures a node's importance in the flow of information across a network. A high betweenness value indicates that a node serves as a crucial bridge between other nodes in a network. For instance, if Zak and Sonya are connected through Charles, but not directly to one another, Charles serves as an important link. Individuals with a high betweenness value may not have the greatest number of connections, but they act as intermediaries, stitching together separate clusters of network members. Working with these individuals is essential for achieving network-wide change. The table below presents the 5 network members most crucial to network flow.
+
+```{r Table of Betweenness, echo=FALSE}
+# Let's collapse these variables in a pander table for degree centrality:
+panderOptions('round',2)
+nodes %>% select(name, horizons, betweenness) %>% 
+  mutate %>% rename(Name = name,
+                    'Betweenness Score' = betweenness,
+                    `Partnership Type` = horizons) %>% 
+  arrange(desc(`Betweenness Score`)) %>%
+  head(5) %>% 
+  pander(style = "rmarkdown", caption = "Network Members Most Important for Network Flow", split.tables = 150)
+```
+
+
+## Network Mapping
+The following force-directed plots depict network members in a two-dimensional space using the Fruchterman-Reingold algorithm embedded in the `networkD3` package in R.
+
+### Overall Network
+The simplified plot below depicts all members of the network and their connections. It does not distinguish between members based on their affiliation or connections based on their nature. Zoom, click, and drag nodes to interact with the network plot.
+
+```{r Simple Network Plot, echo=FALSE}
+# Simple Plot
+simple_lln <- simpleNetwork(lln_any_int, height="100px", width="100px",        
+                   Source = 3,                 # column number of source
+                   Target = 7,                 # column number of target
+                   linkDistance = 5,          # distance between node. Increase this value to have more space between nodes
+                   charge = -500,              # numeric value indicating either the strength of the node repulsion (negative value) or attraction (positive value)
+                   fontSize = 14,              # size of the node names
+                   fontFamily = "serif",       # font og node names
+                   linkColour = "#666",        # colour of edges, MUST be a common colour for the whole graph
+                   nodeColour = "#69b3a2",     # colour of nodes, MUST be a common colour for the whole graph
+                   opacity = 0.9,              # opacity of nodes. 0=transparent. 1=no transparency
+                   zoom = T                    # Can you zoom on the figure?
+)
+
+simple_lln
+```
+
+
+### Network by Partnership Type
+This second plot leverages the same force-directed algorithm, but distinguishes between member of Program A and Program B partnerships. Through this plot, it is possible to see where members engage within and across programs, which members serve as key nodes, and identify clusters of network activity. Nodes on the periphery, with few connections, may represent individuals who would benefit from greater engagement. Nodes at the center, with many connections, may hold a high degree of informal power, in addition to any formal role-based power. Zoom, click, and drag nodes to interact with the network plot.
+
+```{r Program Network Plot Setup, include=FALSE}
+# control colours with a JS ordinal scale
+ColourScale <- 'd3.scaleOrdinal()
+            .domain(["Program A", "Program B"])
+           .range(["#FF6900", "#26A4D2"]);'
+
+force_lln_horizons <- forceNetwork(Links = lln_any_int, Nodes = nodes, 
+             Source = "from_id",
+             Target = "to_id",
+             NodeID ="name",
+             Group = "horizons",
+             Value = 1,
+             linkWidth = 1,
+             opacity = 0.9,
+             zoom = T,
+             legend = T,
+             height = 900,
+             width = 900,
+             colourScale = JS(ColourScale))
+```
+
+```{r Program Network Plot, echo=FALSE}
+force_lln_horizons
+```
+
+### Network by Partnership Type - Varied Node Size
+This third plot depicts node size as a function of the number of connections for each member. A larger node indicates more connections. This visual heuristic simplifies the process for identifying key network actors. Zoom, click, and drag nodes to interact with the network plot.
+
+```{r Program Network Node Size Plot Setup, include=FALSE}
+# Control colors with a JS ordinal scale
+# Node size based on number of connections
+force_lln_horizons_ns <- forceNetwork(Links = lln_any_int, Nodes = nodes,
+                                   Source = "from_id",
+                                   Target = "to_id",
+                                   NodeID ="name",
+                                   Group = "horizons",
+                                   Nodesize = "edges",
+                                   Value = 1,
+                                   linkWidth = 1,
+                                   opacity = 0.9,
+                                   zoom = T,
+                                   legend = T,
+                                   height = 900,
+                                   width = 900,
+                                   colourScale = JS(ColourScale))
+```
+
+```{r Program Network Node Size Plot, echo=FALSE}
+force_lln_horizons_ns
+```
+
+### Network by Partnership Type - Varied Node Size and Link Width
+This fourth plot uses varied link width to distinguish between connections within and across partnerships. A wider link represents a connection between two members of the same partnership, while a narrow link represents connections across partnerships. This additional design element cues the viewer in to the nature of each connection. This approach can be used to place emphasis on, or distinguish between, certain types of connections. When used in time-series network analysis, wider or colored links can represent new connections that did not exist in the previous iteration, quickly depicting network growth. Zoom, click, and drag nodes to interact with the network plot.
+
+```{r Program Network Link Width Plot Setup, include=FALSE}
+# Control colors with a JS ordinal scale
+# Node size based on number of connections
+# Link width changed to represent connections within partnerships
+lln_any_int$link_width = lln_any_int$in_part * 5 + 1
+
+force_lln_horizons_ns_lw <- forceNetwork(Links = lln_any_int, Nodes = nodes, 
+                                      Source = "from_id",
+                                      Target = "to_id",
+                                      NodeID ="name",
+                                      Group = "horizons",
+                                      Nodesize = "edges",
+                                      fontSize = 12,
+                                      Value = "link_width",
+                                      opacity = 0.9,
+                                      zoom = T,
+                                      legend = T,
+                                      height = 900,
+                                      width = 900,
+                                      colourScale = JS(ColourScale))
+```
+
+```{r Program Network Link Width Plot, echo=FALSE}
+force_lln_horizons_ns_lw
+```
+
+### Using Network Analysis to Generate Insights for Action
+While network analysis is often used to generate eye-catching visual representations of social networks, it is also capable of unearthing patterns relevant for program implementation and decision-making. Network statistics can be used to flag key network members - individuals who might be worth including in program design and dissemination conversations. Degree centrality reveals members with a significant number of connections, while betweenness identifies crucial links between otherwise disparate clusters of network activity. Similarly, network analysis is capable of identifying who is excluded from the conversation and could benefit from having a seat at the table. Each of these analyses can be iterated and disaggregated on the basis of interaction type, role, institution, or demographic characteristic. Additionally, time-series network analysis makes it possible to assess network health over time, charting the growth of new members and connections and documenting the loss of those who have left or no longer interact. 
