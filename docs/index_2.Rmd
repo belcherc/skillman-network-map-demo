@@ -534,3 +534,15 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
            scaling = list(min = 20, max = 50))
 ```
 
+
+
+
+
+
+
+
+
+
+
+
+
