@@ -39,7 +39,7 @@ current_date <- Sys.Date()
 formatted_date <- format(current_date, format = "%B %d, %Y")
 
 # Load cleaned survey dataset
-skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 11_6 Cleaned.csv')
+skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 11_13 Cleaned.csv')
 
 
 # Renaming response organizations to align with survey naming conventions
@@ -50,6 +50,10 @@ skillman_survey$resp_org[skillman_survey$resp_org == "CENTER FOR BLACK EDUCATOR 
 skillman_survey$resp_org[skillman_survey$resp_org == "citizens research council of MI"] <- "Citizens Research Council of Michigan"
 skillman_survey$resp_org[skillman_survey$resp_org == "EdTrust Midwest"] <- "EdTrust-Midwest"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Employment Solutions Corporation"] <- "Detroit Employment Solutions Corporation (DESC) / Detroit at Work"
+skillman_survey$resp_org[skillman_survey$resp_org == "Skillman Foundation"] <- "The Skillman Foundation"
+skillman_survey$resp_org[skillman_survey$resp_org == "DPSCD-Athletics"] <- "Detroit Public Schools Community District (DPSCD)"
+skillman_survey$resp_org[skillman_survey$resp_org == "East side community network"] <- "Eastside Community Network"
+skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Education Justice Coalition"] <- "Michigan Education Justice Coalition (MEJC)"
 
 
 
@@ -412,6 +416,8 @@ The following maps provide a visual depiction of the organizations within and co
 First, they are created using a physics-based algorithm. Think of each node (organization) as a metal ball with a magnetic charge, repelling the other balls around it. Each edge (connection) serves as a spring, helping to overcome this magnetic charge and create a structure for the network.
 
 Because of this physics-based approach, the orientation of the organizations within the network is somewhat random. Physical proximity on the map does not correlate with closeness of interaction, nor does distance indicate the lack of interaction.
+
+Lastly, **Level 1** connections are depicted using *dashed* lines, while **Level 2** connections appear as *solid* lines.
 
 ### How to Use the Maps
 These maps are interactive - they include the following functionality:
