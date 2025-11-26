@@ -39,7 +39,7 @@ current_date <- Sys.Date()
 formatted_date <- format(current_date, format = "%B %d, %Y")
 
 # Load cleaned survey dataset
-skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 11_6 Cleaned.csv')
+skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 11_13 Cleaned.csv')
 
 
 # Renaming response organizations to align with survey naming conventions
@@ -50,6 +50,10 @@ skillman_survey$resp_org[skillman_survey$resp_org == "CENTER FOR BLACK EDUCATOR 
 skillman_survey$resp_org[skillman_survey$resp_org == "citizens research council of MI"] <- "Citizens Research Council of Michigan"
 skillman_survey$resp_org[skillman_survey$resp_org == "EdTrust Midwest"] <- "EdTrust-Midwest"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Employment Solutions Corporation"] <- "Detroit Employment Solutions Corporation (DESC) / Detroit at Work"
+skillman_survey$resp_org[skillman_survey$resp_org == "Skillman Foundation"] <- "The Skillman Foundation"
+skillman_survey$resp_org[skillman_survey$resp_org == "DPSCD-Athletics"] <- "Detroit Public Schools Community District (DPSCD)"
+skillman_survey$resp_org[skillman_survey$resp_org == "East side community network"] <- "Eastside Community Network"
+skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Education Justice Coalition"] <- "Michigan Education Justice Coalition (MEJC)"
 
 
 
@@ -320,6 +324,102 @@ policy_priorities <- policy_priorities %>%
 skillman_vertices <- skillman_vertices %>% left_join(policy_priorities, by = c("label" = "resp_org"))
 
 
+## Sector-Level Analysis
+
+sector_from <- edges %>%
+  left_join(skillman_vertices, by = c("from_id" = "id")) %>% 
+  select(from, from_id, group, to, to_id, level) %>% 
+  mutate() %>% rename(from_sector = group)
+
+sector_to <- sector_from %>% 
+  left_join(skillman_vertices, by = c("to_id" = "id")) %>% 
+  select(from, from_id, from_sector, to, to_id, group, level) %>% 
+  mutate() %>% rename(to_sector = group)
+
+sector_edgelist <- sector_to %>% select(from_sector, to_sector, level) %>% 
+  group_by(from_sector, to_sector, level) %>% 
+  summarise(edges = n())
+
+# Removing self-edges (within-sector connections)
+sector_edgelist <- sector_edgelist %>% filter(from_sector != to_sector)
+
+sector_vertices <- skillman_vertices %>% group_by(group) %>% 
+  summarise(orgs = n())
+
+sector_vertices$id <- 1:nrow(sector_vertices)
+
+# Zero-indexing id column
+sector_vertices <- sector_vertices %>% mutate(across(c(id), ~  . - 1))
+
+sector_vertices <- sector_vertices %>% 
+  mutate() %>% rename(sector = group,
+                      value = orgs) %>% 
+  select(sector, id, value)
+
+sector_edges_from_id <- sector_edgelist %>%
+  left_join(sector_vertices, by = c("from_sector" = "sector")) %>% 
+  select(from_sector, id, to_sector, level, edges) %>% 
+  mutate() %>% rename(from_id = id)
+
+sector_edges_to_id <- sector_edges_from_id %>% 
+  left_join(sector_vertices, by = c("to_sector" = "sector")) %>% 
+  select(from_sector, from_id, to_sector, id, level, edges) %>% 
+  mutate() %>% rename(to_id = id)
+
+sector_edges <- sector_edges_to_id %>% ungroup() %>%
+  select(from_id, to_id, level, edges) %>% 
+  mutate() %>% rename(width = edges)
+
+sector_edges$dashes <- ifelse(sector_edges$level == 1, TRUE, FALSE)
+
+sector_edges <- sector_edges %>%
+  select(from_id, to_id, width, dashes)
+
+
+# Deduplicating from and to (non-directional, so only unique pairs matter)
+sector_edges <- sector_edges %>% rowwise() %>% 
+  mutate(id_1 = min(from_id, to_id),
+         id_2 = max(from_id, to_id))
+
+sector_edges$joint_id <- paste(sector_edges$id_1, sector_edges$id_2)
+
+sector_edges <- sector_edges %>% group_by(joint_id, dashes) %>% 
+  summarise(width = sum(width))
+
+sector_edges <- sector_edges %>%
+  separate(joint_id, into = c("from_id", "to_id")) %>% 
+  select(from_id, to_id, width, dashes)
+
+
+## Flagging Across-/Within-Sector Interaction
+edges_by_sector <- edges %>%
+  left_join(skillman_vertices, by = c("from_id" = "id")) %>% 
+  select(row_id, from, from_id, group, to, to_id, level) %>% 
+  mutate() %>% rename(from_sector = group)
+
+edges_by_sector <- edges_by_sector %>% 
+  left_join(skillman_vertices, by = c("to_id" = "id")) %>% 
+  select(row_id, from, from_id, from_sector, to, to_id, group, level) %>% 
+  mutate() %>% rename(to_sector = group)
+
+edges_by_sector$within_sector <- ifelse(edges_by_sector$from_sector == edges_by_sector$to_sector, 1, 0)
+
+from_sector <- edges_by_sector %>% select(from, within_sector) %>% mutate() %>% rename(Organization = from)
+
+to_sector <- edges_by_sector %>% select(to, within_sector) %>% mutate() %>% rename(Organization = to)
+
+all_edges_sector <- rbind(from_sector, to_sector)
+
+edge_count_sector <- all_edges_sector %>% 
+  group_by(Organization) %>%
+  summarise(within_sector = sum(within_sector))
+
+
+skillman_vertices <- skillman_vertices %>% left_join(edge_count_sector, by = c("label" = "Organization"))
+
+skillman_vertices$within_sector[is.na(skillman_vertices$within_sector)] <- 0
+
+
 
 legend_nodes <- data.frame(
   label = c("Sector",
@@ -396,11 +496,12 @@ The table below presents counts of organizations by sector, their total number o
 skill_vert_label <- skillman_vertices %>% mutate(Sector = group)
 
 panderOptions('round',2)
-skill_vert_label %>% select(Sector, id, edges) %>%
+skill_vert_label %>% select(Sector, id, edges, within_sector) %>%
   group_by(Sector) %>% 
   summarize(`Organizations` = n_distinct(id),
             `Total Connections` = sum(edges),
-            `Connections per Organization` = (sum(edges)/n_distinct(id)),
+            `Connections per Organization` = round((sum(edges)/n_distinct(id)), digits = 1),
+            `Percent within Sector` = round((sum(within_sector)/sum(edges))*100, digits = 1),
             .groups = "rowwise") %>% 
   arrange(-`Connections per Organization`) %>% 
   pander(style = "rmarkdown", caption = "Connections by Sector", split.tables = 150)
@@ -413,6 +514,8 @@ First, they are created using a physics-based algorithm. Think of each node (org
 
 Because of this physics-based approach, the orientation of the organizations within the network is somewhat random. Physical proximity on the map does not correlate with closeness of interaction, nor does distance indicate the lack of interaction.
 
+Lastly, **Level 1** connections are depicted using *dashed* lines, while **Level 2** connections appear as *solid* lines.
+
 ### How to Use the Maps
 These maps are interactive - they include the following functionality:
 
@@ -422,16 +525,29 @@ These maps are interactive - they include the following functionality:
 - Use the secondary dropdown to select several nodes based on sector or policy priority.
 - Use a mouse or trackpad to zoom in and out on the legend on the left-hand side.
 
-### Network Map by Sector
-The network map below allows the user to select multiple organizations by sector, displaying all organizations within a given sector, as well as their immediate connections. Sectors with organizations that have many cross-sector connections will result in a colorful array of dots, while sectors with organizations that have fewer cross-sector connections will result in dots of the same color.
+
+### Sector-Level Network Map
+The network map below displays connections at the sector level. The size of the nodes corresponds to the number of organizations in that sector. The width of the edges corresponds to the total number of connections between the two sectors. Click a node or use the dropdown menu to select a sector and see its immediate connections.
 
 ```{r Prep Tables for Network Map, include=FALSE}
 skillman_vert_scale <- skillman_vertices %>% mutate() %>% 
   rename(value = edges)
+
+sector_vertices <- sector_vertices %>%
+  mutate() %>% rename(label = sector) %>% 
+  mutate(group = label) %>% 
+  select(label, group, id, value)
+
+sector_edges <- sector_edges %>% 
+  mutate(from = as.numeric(from_id),
+         to = as.numeric(to_id)) %>% 
+  select(from, to, width, dashes)
+
+skillman_edges_2 <- skillman_edges %>% filter(dashes == FALSE)
 ```
 
-```{r Network Map with Selection by Sector, echo=FALSE}
-visNetwork(skillman_vert_scale, skillman_edges) %>% 
+```{r Network Map at Sector-Level, echo=FALSE}
+visNetwork(sector_vertices, sector_edges) %>% 
   visOptions(width = 625,
              height = 600,
              highlightNearest = list(enabled = TRUE, hover = TRUE,
@@ -442,15 +558,7 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
                                      color: darkblue;
                                      border:none;
                                      outline:none;',
-                                     main = "Select by Organization"),
-             selectedBy = list(variable = "group",
-                               highlight = TRUE,
-                               style = 'width: 300px; height: 26px;
-                                     background: #f8f8f8;
-                                     color: darkblue;
-                                     border:none;
-                                     outline:none;',
-                               main = "Select by Sector")) %>%
+                                     main = "Select by Sector")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
   visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
@@ -465,13 +573,9 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
   visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
-  visGroups(groupname = "Media", color = "deeppink") %>% 
-  visLegend(addNodes = legend_nodes,
-            useGroups = FALSE,
-            width = 0.25,
-            stepY = 125) %>%
-  visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
-    visNodes(shape = "dot",
+  visGroups(groupname = "Media", color = "deeppink") %>%
+  visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -40)) %>% 
+  visNodes(shape = "dot",
            scaling = list(min = 20, max = 50))
 ```
 
@@ -486,7 +590,7 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
 <br>
 
 ### Network Map by Policy Priority
-The network map below allows the user to select multiple organizations by policy priority (as stated on the survey). Using the policy priority dropdown list will enable users to identify the organizations aligned around a given policy. This can be used to take stock of existing coallitions and identify opportunities to partner with other organizations with similar goals.
+The network map below allows the user to select multiple organizations by policy priority (as stated on the survey). Using the policy priority dropdown list will enable users to identify the organizations aligned around a given policy. This can be used to take stock of existing coalitions and identify opportunities to partner with other organizations with similar goals.
 
 ```{r Network Map with Selection by Policy Priority, echo=FALSE}
 visNetwork(skillman_vert_scale, skillman_edges) %>% 
@@ -534,15 +638,61 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
            scaling = list(min = 20, max = 50))
 ```
 
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 
+### Network Map by Policy Priority - Level 2 Connections Only
+The network map below functions similarly to the map above, but has been filtered to include only **Level 2** connections. The map allows the user to select multiple organizations by policy priority (as stated on the survey). Using the policy priority dropdown list will enable users to identify the organizations aligned around a given policy. This can be used to take stock of existing coalitions and identify opportunities to partner with other organizations with similar goals.
 
-
-
-
-
-
-
-
-
-
-
+```{r Level 2 Network Map with Selection by Policy Priority, echo=FALSE}
+visNetwork(skillman_vert_scale, skillman_edges_2) %>% 
+  visOptions(width = 625,
+             height = 600,
+             highlightNearest = list(enabled = TRUE,
+                                     degree = 1, labelOnly = FALSE),
+             nodesIdSelection = list(enabled = TRUE, useLabels = TRUE,
+                                     style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                                     main = "Select by Organization"),
+             selectedBy = list(variable = "prior_pol",
+                               highlight = FALSE,
+                               multiple = TRUE,
+                               style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                               main = "Select by Policy Priority")) %>%
+  visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
+  visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
+  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
+  visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
+  visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
+  visGroups(groupname = "City and County Government", color = "darkgreen") %>% 
+  visGroups(groupname = "State Policymakers and Agencies", color = "green") %>% 
+  visGroups(groupname = "Policy and Advocacy Organizations", color = "coral") %>% 
+  visGroups(groupname = "Investors and Foundations", color = "darkred") %>% 
+  visGroups(groupname = "Business and Industry Organizations", color = "red") %>% 
+  visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
+  visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
+  visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
+  visGroups(groupname = "Media", color = "deeppink") %>% 
+  visLegend(addNodes = legend_nodes,
+            useGroups = FALSE,
+            width = 0.2,
+            stepY = 125) %>%
+  visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
+  visNodes(shape = "dot",
+           scaling = list(min = 20, max = 50))
+```
