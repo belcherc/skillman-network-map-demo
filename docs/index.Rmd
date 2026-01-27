@@ -22,6 +22,7 @@ library(networkD3)
 library(visNetwork)
 library(htmlwidgets)
 library(pander)
+library(reactable)
 library(scales)
 ```
 
@@ -39,22 +40,26 @@ current_date <- Sys.Date()
 formatted_date <- format(current_date, format = "%B %d, %Y")
 
 # Load cleaned survey dataset
-skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 11_13 Cleaned.csv')
+skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 1_26 Cleaned.csv')
 
 
 # Renaming response organizations to align with survey naming conventions
 skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Association of Public School Academies"] <- "Michigan Association of Public School Academies (MAPSA)"
 skillman_survey$resp_org[skillman_survey$resp_org == "Education Policy Innovation Collaborative - MSU"] <- "Education Policy Innovation Collaborative (EPIC) - Michigan State University"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit PAL"] <- "Detroit Police Athletic League"
+skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Employment Solutions Corporation"] <- "Detroit Employment Solutions Corporation (DESC) / Detroit at Work"
 skillman_survey$resp_org[skillman_survey$resp_org == "CENTER FOR BLACK EDUCATOR DEVELOPMENT"] <- "Center for Black Educator Development"
 skillman_survey$resp_org[skillman_survey$resp_org == "citizens research council of MI"] <- "Citizens Research Council of Michigan"
 skillman_survey$resp_org[skillman_survey$resp_org == "EdTrust Midwest"] <- "EdTrust-Midwest"
-skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Employment Solutions Corporation"] <- "Detroit Employment Solutions Corporation (DESC) / Detroit at Work"
 skillman_survey$resp_org[skillman_survey$resp_org == "Skillman Foundation"] <- "The Skillman Foundation"
 skillman_survey$resp_org[skillman_survey$resp_org == "DPSCD-Athletics"] <- "Detroit Public Schools Community District (DPSCD)"
 skillman_survey$resp_org[skillman_survey$resp_org == "East side community network"] <- "Eastside Community Network"
 skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Education Justice Coalition"] <- "Michigan Education Justice Coalition (MEJC)"
-
+skillman_survey$resp_org[skillman_survey$resp_org == "Data Driven Detroit"] <- "Data Driven Detroit (D3)"
+skillman_survey$resp_org[skillman_survey$resp_org == "482forward"] <- "482Forward"
+skillman_survey$resp_org[skillman_survey$resp_org == "Cody Rouge Community Action Alliance"] <- "Cody Rouge Neighborhood Alliance"
+skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Regional Chamber / Detroit Promise"] <- "Detroit Regional Chamber"
+skillman_survey$resp_org[skillman_survey$resp_org == "Communities in Schools MI"] <- "Communities in Schools Michigan"
 
 
 ### Creating dataframe with level 1 interaction
@@ -215,6 +220,7 @@ org_list$Sector[org_list$Organization == "826michigan"] <- "Youth Serving Organi
 org_list$Sector[org_list$Organization == "College for Creative Studies, Precollege and Continuing Studies Dept."] <- "Institutes of Higher Education"
 org_list$Sector[org_list$Organization == "North End Woodward Community Coalition (NEWCC)"] <- "Family and Community Organizations"
 org_list$Sector[org_list$Organization == "Teach Plus Michigan"] <- "Policy and Advocacy Organizations"
+org_list$Sector[org_list$Organization == "Detroit Regional Chamber"] <- "Business and Industry Organizations"
 
 
 # Dropping survey question column
@@ -247,13 +253,13 @@ edges <- edges %>% mutate(across(c(row_id), ~  . - 1)) %>%
 
 ## Generating a few summary network statistics
 
-# Responses - 23
+# Responses - 48
 response_orgs %>% n_distinct()
 
-# Network size - 149 organizations
+# Network size - 162 organizations
 nrow(org_list)
 
-# Density (connections / possible connections) - 3.03%
+# Density (connections / possible connections) - 5.19%
 nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))
 
 # Degree centrality
@@ -507,6 +513,7 @@ skill_vert_label %>% select(Sector, id, edges, within_sector) %>%
   pander(style = "rmarkdown", caption = "Connections by Sector", split.tables = 150)
 ```
 
+
 ## Network Maps
 The following maps provide a visual depiction of the organizations within and connections across Detroit's K-12 education ecosystem. There are a few things worth noting before engaging with the maps themselves.
 
@@ -531,12 +538,14 @@ The network map below displays connections at the sector level. The size of the 
 
 ```{r Prep Tables for Network Map, include=FALSE}
 skillman_vert_scale <- skillman_vertices %>% mutate() %>% 
-  rename(value = edges)
+  rename(value = edges) %>% 
+  mutate(title = paste0("<p><b>", label, "</b><br>",value," Connections"))
 
 sector_vertices <- sector_vertices %>%
   mutate() %>% rename(label = sector) %>% 
-  mutate(group = label) %>% 
-  select(label, group, id, value)
+  mutate(group = label,
+         title = paste0("<p><b>", label, "</b><br>",value," Connections")) %>% 
+  select(label, group, id, value, title)
 
 sector_edges <- sector_edges %>% 
   mutate(from = as.numeric(from_id),
@@ -576,7 +585,8 @@ visNetwork(sector_vertices, sector_edges) %>%
   visGroups(groupname = "Media", color = "deeppink") %>%
   visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -40)) %>% 
   visNodes(shape = "dot",
-           scaling = list(min = 20, max = 50))
+           scaling = list(min = 20, max = 50),
+           labelHighlightBold = TRUE)
 ```
 
 <br>
@@ -635,7 +645,8 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
             stepY = 125) %>%
   visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
     visNodes(shape = "dot",
-           scaling = list(min = 20, max = 50))
+           scaling = list(min = 20, max = 50),
+           labelHighlightBold = TRUE)
 ```
 
 <br>
@@ -695,5 +706,95 @@ visNetwork(skillman_vert_scale, skillman_edges_2) %>%
   visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
   visNodes(shape = "dot",
            scaling = list(min = 20, max = 50))
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+## Interactive Tables
+The following table can be sorted, searched, and reformatted...
+
+### By Organization
+Each row in this table represents an organization depicted in the network maps above. Click on the column headers to sort the rows (double click to sort in *descending* order). Use the search bars below the column headers to identify specific organizations, sectors, or policy priorities.
+
+```{r Interactive Table Org, echo=FALSE}
+skillman_vert_tab <- skillman_vertices[, c(1,2,7,4)]
+
+skillman_vert_tab$prior_pol <-gsub(",", ", ", skillman_vert_tab$prior_pol)
+
+reactable(
+  skillman_vert_tab,
+  striped = TRUE,
+  columns = list(
+    group = colDef(name = "Sector", defaultSortOrder = "asc"),
+    label = colDef(name = "Organization"),
+    edges = colDef(name = "Connections", filterable = FALSE),
+    prior_pol = colDef(name = "Policy Priorities")
+  ),
+  defaultSorted = c("group"),
+  filterable = TRUE,
+  defaultPageSize = 10
+)
+
+
+```
+
+
+### By Sector
+Each row in this table represents an organization depicted in the network maps above, grouped and aggregated by their sector. Click on the column headers to sort the rows (double click to sort in *descending* order). Click on a row to expand it and show its member organizations, double-click to collapse it again.
+
+```{r Interactive Table Sector, echo=FALSE}
+skillman_vert_tab <- skillman_vertices[, c(2,1,7,4)]
+
+skillman_vert_tab$prior_pol <-gsub(",", ", ", skillman_vert_tab$prior_pol)
+
+reactable(
+  skillman_vert_tab,
+  groupBy = "group",
+  striped = TRUE,
+  columns = list(
+    group = colDef(name = "Sector", defaultSortOrder = "asc", filterable = FALSE),
+    label = colDef(name = "Organization"),
+    edges = colDef(name = "Connections", aggregate = "mean", format = colFormat(digits = 1), filterable = FALSE),
+    prior_pol = colDef(name = "Policy Priorities")
+  ),
+  defaultSorted = c("group"),
+  defaultPageSize = 15
+)
+
+
+```
+
+### By Policy Priority
+Each row in this table represents an organization depicted in the network maps above, grouped and aggregated by their stated policy priorities. Click on the column headers to sort the rows (double click to sort in *descending* order). Click on a row to expand it and show its member organizations, double-click to collapse it again.
+
+```{r Interactive Table Pol, echo=FALSE}
+skillman_vert_pol <- skillman_vertices[, c(7,1,2,4)] %>% 
+  separate_longer_delim(cols = prior_pol, delim = ",") %>% 
+  mutate(prior_pol = replace_na(prior_pol, "None Listed"),
+         prior_pol = replace(prior_pol, prior_pol == "", "None Listed"))
+
+reactable(
+  skillman_vert_pol,
+  groupBy = "prior_pol",
+  striped = TRUE,
+  columns = list(
+    group = colDef(name = "Sector"),
+    label = colDef(name = "Organization"),
+    edges = colDef(name = "Connections", aggregate = "mean", format = colFormat(digits = 1), filterable = FALSE),
+    prior_pol = colDef(name = "Policy Priorities", defaultSortOrder = "asc")
+  ),
+  defaultSorted = c("prior_pol"),
+  defaultPageSize = 10
+)
+
+
 ```
 
