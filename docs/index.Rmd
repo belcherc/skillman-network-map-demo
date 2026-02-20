@@ -1132,11 +1132,8 @@ skill_vert_label_grant_only %>% select(label, Sector, edges, betweenness, closen
 The table below presents the five grantees with the highest **betweenness** score - *how well these organizations serve as a bridge* - within the Detroit K-12 education ecosystem.
 
 ```{r Top 5 Orgs by Betweenness - Grantees, echo=FALSE}
-# Let's collapse these variables in a pander table:
-skill_vert_label <- skillman_vertices %>% mutate(Sector = group)
-
 panderOptions('round',2)
-skill_vert_label %>% select(label, Sector, edges, betweenness, closeness) %>%
+skill_vert_label_grant_only %>% select(label, Sector, edges, betweenness, closeness) %>%
   arrange(-betweenness) %>% 
   head(5) %>% 
   mutate(`Organization` = label,
