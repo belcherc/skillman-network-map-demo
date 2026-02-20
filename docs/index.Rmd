@@ -962,6 +962,31 @@ skill_vert_label_grant_only <- skill_vert_label_grant %>% filter(grantee == "Yes
 
 all_edges_g2g_only <- all_edges_grantee %>% filter(grant_to_grant == 1)
 
+skillman_vertices_grant <- orgs_by_grant_status %>% select(id,grantee) %>% right_join(skillman_vertices) %>% select(label, group, id, edges, betweenness, closeness, prior_pol, within_sector, grant_to_grant, grantee)
+
+skillman_vertices_grant$group[skillman_vertices_grant$grantee == "No"] <- "Non-Grantee"
+
+skillman_vert_scale_grant <- skillman_vertices_grant %>% mutate() %>% 
+  rename(value = edges) %>% 
+  mutate(title = paste0("<p><b>", label, "</b><br>",value," Connections"))
+
+skillman_vert_scale_grant_only <- skillman_vert_scale_grant %>% filter(grantee == "Yes")
+
+skillman_edges_from_grant <- skillman_edges %>% 
+  left_join(orgs_by_grant_status, by = c("from" = "id")) %>% 
+  mutate() %>% 
+  rename(from_grantee = grantee) %>% 
+  select(-label)
+
+skillman_edges_to_grant <- skillman_edges_from_grant %>% 
+  left_join(orgs_by_grant_status, by = c("to" = "id")) %>% 
+  mutate() %>% 
+  rename(to_grantee = grantee) %>% 
+  select(-label)
+
+skillman_edges_grant_only <- skillman_edges_to_grant %>% 
+  filter(from_grantee == "Yes" & to_grantee == "Yes")
+
 legend_nodes_grant <- data.frame(
   label = c("Sector",
             "Youth Serving Organizations",
@@ -1020,7 +1045,7 @@ legend_nodes_grant <- data.frame(
 
 ```
 
-This section provides detailed network information for current Skillman Foundation grant partners. Within the network are `r skill_vert_label_grant_only %>% n_distinct()` unique grantee organizations. There were a total of `r nrow(all_edges_g2g_only)` connections between grantees, representing `r round(nrow(all_edges_g2g_only)/nrow(edges)*100, digits = 2)`% of all connections within the network. The network density for grantees was `r round(nrow(all_edges_g2g_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1))*100, digits = 2)`%, compared to an overall network density of `r round(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))*100, digits = 2)`%. This means that the odds that any two grantees are connected are `r round((nrow(all_edges_g2g_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1)))/(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))), digits = 1)`X higher than the odds that any two organizations within the network are connected.
+This section provides detailed network information for current Skillman Foundation grant partners. Within the network are `r skill_vert_label_grant_only %>% n_distinct()` unique grantee organizations. There were a total of `r nrow(skillman_edges_grant_only)` connections between grantees, representing `r round(nrow(skillman_edges_grant_only)/nrow(edges)*100, digits = 2)`% of all connections within the network. The network density for grantees was `r round(nrow(skillman_edges_grant_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1))*100, digits = 2)`%, compared to an overall network density of `r round(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))*100, digits = 2)`%. This means that the odds that any two grantees are connected are `r round((nrow(skillman_edges_grant_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1)))/(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))), digits = 1)`X higher than the odds that any two organizations within the network are connected.
 
 The table below presents summary statistics for Skillman grantees, grouped by sector. These statistics include all connections for these organizations, including those with non-grantees. The "% w/ Other Grantees" column presents the percentage of all connections for grantees in that sector that were made with other grant partners.
 
@@ -1126,19 +1151,10 @@ skill_vert_label %>% select(label, Sector, edges, betweenness, closeness) %>%
 <br>
 <br>
 
-### Grantee Network Map
+### Grantee Network Maps
 The map below presents all actors and connections (both *Level 1* and *Level 2*) within the network. Non-grant partners are presented in grey and scaled smaller, while grant partners are presented in colors corresponding to their sector, and scaled based on their total number of connections.
 
-```{r Prep Tables for Grantee Network Map, include=FALSE}
-skillman_vertices_grant <- orgs_by_grant_status %>% select(id,grantee) %>% right_join(skillman_vertices) %>% select(label, group, id, edges, betweenness, closeness, prior_pol, within_sector, grant_to_grant, grantee)
-
-skillman_vertices_grant$group[skillman_vertices_grant$grantee == "No"] <- "Non-Grantee"
-
-skillman_vert_scale_grant <- skillman_vertices_grant %>% mutate() %>% 
-  rename(value = edges) %>% 
-  mutate(title = paste0("<p><b>", label, "</b><br>",value," Connections"))
-```
-
+#### All Network Members
 ```{r Grantee Network Map with Selection by Policy Priority, echo=FALSE}
 visNetwork(skillman_vert_scale_grant, skillman_edges) %>% 
   visOptions(width = 625,
@@ -1187,5 +1203,59 @@ visNetwork(skillman_vert_scale_grant, skillman_edges) %>%
            labelHighlightBold = TRUE)
 ```
 
+<br>
+<br>
+<br>
+<br>
+<br>
+
+#### Grantees Only
+The map below presents Skillman grant partners alone, and only the connections between Skillman grant partners.
+```{r Grantee Network Map with Selection by Policy Priority, echo=FALSE}
+visNetwork(skillman_vert_scale_grant_only, skillman_edges_grant_only) %>% 
+  visOptions(width = 625,
+             height = 600,
+             highlightNearest = list(enabled = TRUE,
+                                     degree = 1, labelOnly = FALSE),
+             nodesIdSelection = list(enabled = TRUE, useLabels = TRUE,
+                                     style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                                     main = "Select by Organization"),
+             selectedBy = list(variable = "prior_pol",
+                               highlight = FALSE,
+                               multiple = TRUE,
+                               style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                               main = "Select by Policy Priority")) %>%
+  visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
+  visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
+  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
+  visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
+  visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
+  visGroups(groupname = "City and County Government", color = "darkgreen") %>% 
+  visGroups(groupname = "State Policymakers and Agencies", color = "green") %>% 
+  visGroups(groupname = "Policy and Advocacy Organizations", color = "coral") %>% 
+  visGroups(groupname = "Investors and Foundations", color = "darkred") %>% 
+  visGroups(groupname = "Business and Industry Organizations", color = "red") %>% 
+  visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
+  visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
+  visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
+  visGroups(groupname = "Media", color = "deeppink") %>% 
+  visLegend(addNodes = legend_nodes,
+            useGroups = FALSE,
+            width = 0.2,
+            stepY = 125) %>%
+  visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
+    visNodes(shape = "dot",
+           scaling = list(min = 20, max = 50),
+           labelHighlightBold = TRUE)
+```
 
 
