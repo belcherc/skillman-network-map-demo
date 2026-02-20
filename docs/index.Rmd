@@ -1208,10 +1208,14 @@ visNetwork(skillman_vert_scale_grant, skillman_edges) %>%
 <br>
 <br>
 <br>
+<br>
+<br>
+<br>
+<br>
 
 #### Grantees Only
 The map below presents Skillman grant partners alone, and only the connections between Skillman grant partners.
-```{r Grantee Network Map with Selection by Policy Priority, echo=FALSE}
+```{r Grantee Only Network Map with Selection by Policy Priority, echo=FALSE}
 visNetwork(skillman_vert_scale_grant_only, skillman_edges_grant_only) %>% 
   visOptions(width = 625,
              height = 600,
