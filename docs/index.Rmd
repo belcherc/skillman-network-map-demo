@@ -14,6 +14,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
+library(readxl)
 library(dplyr)
 library(tidyr)
 library(igraph)
@@ -40,7 +41,7 @@ current_date <- Sys.Date()
 formatted_date <- format(current_date, format = "%B %d, %Y")
 
 # Load cleaned survey dataset
-skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 2_13 Cleaned.csv')
+skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 2_19 Cleaned.csv')
 
 
 # Renaming response organizations to align with survey naming conventions
@@ -67,6 +68,7 @@ skillman_survey$resp_org[skillman_survey$resp_org == "College Career and Beyond 
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Partnership for Education Equity & Research (Detroit PEER)"] <- "Detroit Partnership for Education Equity & Research (PEER) - Wayne State University"
 skillman_survey$resp_org[skillman_survey$resp_org == "EPIC - MSU"] <- "Education Policy Innovation Collaborative (EPIC) - Michigan State University"
 skillman_survey$resp_org[skillman_survey$resp_org == "Crain's Detroit Business"] <- "Crain’s Business Detroit"
+skillman_survey$resp_org[skillman_survey$resp_org == "Institute for Law and Organizing"] <- "Detroit Institute for Law and Organizing"
 
 
 ### Creating dataframe with level 1 interaction
@@ -229,6 +231,8 @@ org_list$Sector[org_list$Organization == "North End Woodward Community Coalition
 org_list$Sector[org_list$Organization == "Teach Plus Michigan"] <- "Policy and Advocacy Organizations"
 org_list$Sector[org_list$Organization == "Detroit Regional Chamber"] <- "Business and Industry Organizations"
 org_list$Sector[org_list$Organization == "Detroit Partnership for Education Equity & Research (PEER) - Wayne State University"] <- "Research and Data Organizations"
+org_list$Sector[org_list$Organization == "Urban Neighborhood Initiatives"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "Detroit Institute for Law and Organizing"] <- "Policy and Advocacy Organizations"
 
 
 # Dropping survey question column
@@ -261,13 +265,13 @@ edges <- edges %>% mutate(across(c(row_id), ~  . - 1)) %>%
 
 ## Generating a few summary network statistics
 
-# Responses - 61
+# Responses - 65
 response_orgs %>% n_distinct()
 
-# Network size - 172 organizations
+# Network size - 174 organizations
 nrow(org_list)
 
-# Density (connections / possible connections) - 5.92%
+# Density (connections / possible connections) - 6.33%
 nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))
 
 # Degree centrality
@@ -432,7 +436,6 @@ edge_count_sector <- all_edges_sector %>%
 skillman_vertices <- skillman_vertices %>% left_join(edge_count_sector, by = c("label" = "Organization"))
 
 skillman_vertices$within_sector[is.na(skillman_vertices$within_sector)] <- 0
-
 
 
 legend_nodes <- data.frame(
@@ -904,4 +907,285 @@ reactable(
 
 
 ```
+
+
+## Skillman Grantees
+
+```{r Load & Prep Grantee Data, include=FALSE}
+# Load list of orgs by grantee status
+orgs_by_grant_status <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Grantee Org List.csv')
+
+
+## Flagging Grantee-/Non-Grantee Interaction
+edges_by_grantee <- edges %>%
+  left_join(skillman_vertices, by = c("from_id" = "id")) %>% 
+  select(row_id, from, from_id, group, to, to_id, level) %>% 
+  mutate() %>% rename(from_sector = group) %>% 
+  left_join(orgs_by_grant_status, by = c("from_id" = "id")) %>% 
+  mutate() %>% rename(from_grantee = grantee)
+
+edges_by_grantee <- edges_by_grantee %>% 
+  left_join(skillman_vertices, by = c("to_id" = "id")) %>% 
+  select(row_id, from, from_id, from_sector, from_grantee, to, to_id, group, level) %>% 
+  mutate() %>% rename(to_sector = group) %>% 
+  left_join(orgs_by_grant_status, by = c("to_id" = "id")) %>% 
+  mutate() %>% rename(to_grantee = grantee) %>% 
+  select(row_id, from, from_id, from_sector, from_grantee, to, to_id, to_sector, to_grantee, level)
+
+edges_by_grantee <- edges_by_grantee %>% 
+  mutate(grant_to_grant = case_when(from_grantee == "Yes" & to_grantee == "Yes" ~ 1,
+                                    TRUE ~ 0))
+
+from_grantee <- edges_by_grantee %>% select(from, grant_to_grant) %>% mutate() %>% rename(Organization = from)
+
+to_grantee <- edges_by_grantee %>% select(to, grant_to_grant) %>% mutate() %>% rename(Organization = to)
+
+all_edges_grantee <- rbind(from_grantee, to_grantee)
+
+edge_count_grantee <- all_edges_grantee %>% 
+  group_by(Organization) %>%
+  summarise(grant_to_grant = sum(grant_to_grant))
+
+skillman_vertices <- skillman_vertices %>% left_join(edge_count_grantee, by = c("label" = "Organization"))
+
+skillman_vertices$grant_to_grant[is.na(skillman_vertices$grant_to_grant)] <- 0
+
+skill_vert_label_grant <- skill_vert_label %>% left_join(orgs_by_grant_status, by = "id") %>% 
+  select(-label.y) %>% 
+  mutate() %>% 
+  rename(label = label.x) %>% 
+  left_join(edge_count_grantee, by = c("label" = "Organization"))
+
+skill_vert_label_grant$grant_to_grant[is.na(skill_vert_label_grant$grant_to_grant)] <- 0
+
+skill_vert_label_grant_only <- skill_vert_label_grant %>% filter(grantee == "Yes")
+
+all_edges_g2g_only <- all_edges_grantee %>% filter(grant_to_grant == 1)
+
+legend_nodes_grant <- data.frame(
+  label = c("Sector",
+            "Youth Serving Organizations",
+            "Family and Community Organizations",
+            "K-12 Education Systems Member Organizations and Unions",
+            "K-12 Education Systems",
+            "Charter Authorizers",
+            "Institutes of Higher Education",
+            "City and County Government",
+            "State Policymakers and Agencies",
+            "Policy and Advocacy Organizations",
+            "Investors and Foundations",
+            "Business and Industry Organizations",
+            "Workforce Pathways and Training",
+            "Research and Data Organizations",
+            "Technical Assistance Providers",
+            "Media",
+            "Non-Grantee"), 
+  color = c("white",
+            "darkblue",
+            "blue",
+            "lightblue",
+            "purple",
+            "darkorchid",
+            "orchid",
+            "darkgreen",
+            "green",
+            "coral",
+            "darkred",
+            "red",
+            "brown",
+            "gold",
+            "yellow",
+            "deeppink",
+            "grey"),
+  shape = c("dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot",
+            "dot"),
+  size = c(30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 15),
+  font.size = c(30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 10)
+)
+
+```
+
+This section provides detailed network information for current Skillman Foundation grant partners. Within the network are `r skill_vert_label_grant_only %>% n_distinct()` unique grantee organizations. There were a total of `r nrow(all_edges_g2g_only)` connections between grantees, representing `r round(nrow(all_edges_g2g_only)/nrow(edges)*100, digits = 2)`% of all connections within the network. The network density for grantees was `r round(nrow(all_edges_g2g_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1))*100, digits = 2)`%, compared to an overall network density of `r round(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))*100, digits = 2)`%. This means that the odds that any two grantees are connected are `r round((nrow(all_edges_g2g_only)/(nrow(skill_vert_label_grant_only)*(nrow(skill_vert_label_grant_only)-1)))/(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))), digits = 1)`X higher than the odds that any two organizations within the network are connected.
+
+The table below presents summary statistics for Skillman grantees, grouped by sector. These statistics include all connections for these organizations, including those with non-grantees. The "% w/ Other Grantees" column presents the percentage of all connections for grantees in that sector that were made with other grant partners.
+
+```{r Table of Connections by Sector - Grantees, echo=FALSE}
+# Let's collapse these variables in a pander table:
+panderOptions('round',2)
+skill_vert_label_grant_only %>% select(Sector, id, edges, within_sector, grant_to_grant) %>%
+  group_by(Sector) %>% 
+  summarize(`Organizations` = n_distinct(id),
+            `Total Connections` = sum(edges),
+            `Avg. Connections` = round((sum(edges)/n_distinct(id)), digits = 1),
+            `% w/in Sector` = round((sum(within_sector)/sum(edges))*100, digits = 1),
+            `% w/ Other Grantees` = round((sum(grant_to_grant)/sum(edges))*100, digits = 1),
+            .groups = "rowwise") %>% 
+  arrange(-`Organizations`) %>% 
+  pander(style = "rmarkdown", caption = "Connections by Sector, Skillman Grant Partners", split.tables = 150)
+```
+
+<br>
+<br>
+
+### Grantee Centrality
+The statistics below present the same measures of centrality discussed above, subset to Skillman grant partners only.
+
+```{r Table of Centrality by Sector - Grantees, echo=FALSE}
+panderOptions('round',2)
+skill_vert_label_grant_only %>% select(Sector, id, edges, betweenness, closeness) %>%
+  group_by(Sector) %>% 
+  summarize(`Organizations` = n_distinct(id),
+            `Avg. Degree Centrality` = round((sum(edges)/n_distinct(id)), digits = 1),
+            `Avg. Closeness` = round((sum(closeness)/n_distinct(id))*1000, digits = 1),
+            `Avg. Betweenness` = round((sum(betweenness)/n_distinct(id)), digits = 1),
+            .groups = "rowwise") %>% 
+  arrange(-`Avg. Degree Centrality`) %>% 
+  pander(style = "rmarkdown", caption = "Centrality by Sector, Skillman Grant Partners", split.tables = 150)
+```
+
+<br>
+<br>
+
+#### Top 5 Grantees by Degree Centrality
+The table below presents the five grantees with the highest **degree centrality** score - *total number of connections* - within the Detroit K-12 education ecosystem.
+
+```{r Top 5 Orgs by Degree Centrality - Grantees, echo=FALSE}
+panderOptions('round',2)
+skill_vert_label_grant_only %>% select(label, Sector, edges, betweenness, closeness) %>%
+  arrange(-edges) %>% 
+  head(5) %>% 
+  mutate(`Organization` = label,
+            `Sector` = Sector,
+            `Degree Centrality` = edges,
+            `Closeness` = round((closeness)*1000, digits = 1),
+            `Betweenness` = betweenness) %>% 
+  arrange(-`Degree Centrality`) %>% 
+  select(Organization, Sector, `Degree Centrality`, Closeness, Betweenness) %>% 
+  pander(style = "rmarkdown", caption = "Top 5 Organizations by Degree Centrality, Skillman Grant Partners", split.tables = 150)
+```
+
+<br>
+<br>
+
+#### Top 5 Grantees by Closeness
+The table below presents the five grantees with the highest **closeness** score - *direct and indirect connections* - within the Detroit K-12 education ecosystem.
+
+```{r Top 5 Orgs by Closeness - Grantees, echo=FALSE}
+panderOptions('round',2)
+skill_vert_label_grant_only %>% select(label, Sector, edges, betweenness, closeness) %>%
+  arrange(-closeness) %>% 
+  head(5) %>% 
+  mutate(`Organization` = label,
+            `Sector` = Sector,
+            `Degree Centrality` = edges,
+            `Closeness` = round((closeness)*1000, digits = 1),
+            `Betweenness` = betweenness) %>% 
+  arrange(-`Closeness`) %>% 
+  select(Organization, Sector, `Degree Centrality`, Closeness, Betweenness) %>% 
+  pander(style = "rmarkdown", caption = "Top 5 Organizations by Closeness, Skillman Grant Partners", split.tables = 150)
+```
+
+<br>
+<br>
+
+#### Top 5 Grantees by Betweenness
+The table below presents the five grantees with the highest **betweenness** score - *how well these organizations serve as a bridge* - within the Detroit K-12 education ecosystem.
+
+```{r Top 5 Orgs by Betweenness - Grantees, echo=FALSE}
+# Let's collapse these variables in a pander table:
+skill_vert_label <- skillman_vertices %>% mutate(Sector = group)
+
+panderOptions('round',2)
+skill_vert_label %>% select(label, Sector, edges, betweenness, closeness) %>%
+  arrange(-betweenness) %>% 
+  head(5) %>% 
+  mutate(`Organization` = label,
+            `Sector` = Sector,
+            `Degree Centrality` = edges,
+            `Closeness` = round((closeness)*1000, digits = 1),
+            `Betweenness` = betweenness) %>% 
+  arrange(-`Betweenness`) %>% 
+  select(Organization, Sector, `Degree Centrality`, Closeness, Betweenness) %>% 
+  pander(style = "rmarkdown", caption = "Top 5 Organizations by Betweenness, Skillman Grant Partners", split.tables = 150)
+```
+<br>
+<br>
+
+### Grantee Network Map
+The map below presents all actors and connections (both *Level 1* and *Level 2*) within the network. Non-grant partners are presented in grey and scaled smaller, while grant partners are presented in colors corresponding to their sector, and scaled based on their total number of connections.
+
+```{r Prep Tables for Grantee Network Map, include=FALSE}
+skillman_vertices_grant <- orgs_by_grant_status %>% select(id,grantee) %>% right_join(skillman_vertices) %>% select(label, group, id, edges, betweenness, closeness, prior_pol, within_sector, grant_to_grant, grantee)
+
+skillman_vertices_grant$group[skillman_vertices_grant$grantee == "No"] <- "Non-Grantee"
+
+skillman_vert_scale_grant <- skillman_vertices_grant %>% mutate() %>% 
+  rename(value = edges) %>% 
+  mutate(title = paste0("<p><b>", label, "</b><br>",value," Connections"))
+```
+
+```{r Grantee Network Map with Selection by Policy Priority, echo=FALSE}
+visNetwork(skillman_vert_scale_grant, skillman_edges) %>% 
+  visOptions(width = 625,
+             height = 600,
+             highlightNearest = list(enabled = TRUE,
+                                     degree = 1, labelOnly = FALSE),
+             nodesIdSelection = list(enabled = TRUE, useLabels = TRUE,
+                                     style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                                     main = "Select by Organization"),
+             selectedBy = list(variable = "prior_pol",
+                               highlight = FALSE,
+                               multiple = TRUE,
+                               style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                               main = "Select by Policy Priority")) %>%
+  visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
+  visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
+  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
+  visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
+  visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
+  visGroups(groupname = "City and County Government", color = "darkgreen") %>% 
+  visGroups(groupname = "State Policymakers and Agencies", color = "green") %>% 
+  visGroups(groupname = "Policy and Advocacy Organizations", color = "coral") %>% 
+  visGroups(groupname = "Investors and Foundations", color = "darkred") %>% 
+  visGroups(groupname = "Business and Industry Organizations", color = "red") %>% 
+  visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
+  visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
+  visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
+  visGroups(groupname = "Media", color = "deeppink") %>% 
+  visGroups(groupname = "Non-Grantee", color = "grey") %>% 
+  visLegend(addNodes = legend_nodes_grant,
+            useGroups = FALSE,
+            width = 0.2,
+            stepY = 125) %>%
+  visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -20)) %>% 
+    visNodes(shape = "dot",
+           scaling = list(min = 20, max = 50),
+           labelHighlightBold = TRUE)
+```
+
+
 
