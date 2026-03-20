@@ -41,10 +41,21 @@ current_date <- Sys.Date()
 formatted_date <- format(current_date, format = "%B %d, %Y")
 
 # Load cleaned survey dataset
-skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 2_19 Cleaned.csv')
+skillman_survey <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Results 3_4 Cleaned.csv')
+
+
+# Dropping one blank response row
+skillman_survey <- skillman_survey %>% filter(resp_no != 156)
+
+
+# Dropping irrelevant respondents (Detroit Goodfellows and R3 Rehabilitation Restoration)
+skillman_survey <- skillman_survey %>% filter(resp_no != 123)
+skillman_survey <- skillman_survey %>% filter(resp_no != 159)
+
 
 
 # Renaming response organizations to align with survey naming conventions
+skillman_survey$resp_org[skillman_survey$resp_org == "College for Creative Studies, Precollege and Continuing Studies Dept."] <- "College for Creative Studies"
 skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Association of Public School Academies"] <- "Michigan Association of Public School Academies (MAPSA)"
 skillman_survey$resp_org[skillman_survey$resp_org == "Education Policy Innovation Collaborative - MSU"] <- "Education Policy Innovation Collaborative (EPIC) - Michigan State University"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit PAL"] <- "Detroit Police Athletic League"
@@ -61,6 +72,7 @@ skillman_survey$resp_org[skillman_survey$resp_org == "482forward"] <- "482Forwar
 skillman_survey$resp_org[skillman_survey$resp_org == "Cody Rouge Community Action Alliance"] <- "Cody Rouge Neighborhood Alliance"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Regional Chamber / Detroit Promise"] <- "Detroit Regional Chamber"
 skillman_survey$resp_org[skillman_survey$resp_org == "Communities in Schools MI"] <- "Communities in Schools Michigan"
+skillman_survey$resp_org[skillman_survey$resp_org == "Communities In Schools of Michigan"] <- "Communities in Schools Michigan"
 skillman_survey$resp_org[skillman_survey$resp_org == "The Michigan Association of Secondary School Principals"] <- "Michigan Association of Secondary School Principals (MASSP)"
 skillman_survey$resp_org[skillman_survey$resp_org == "Bridge Detroit"] <- "Bridge Detroit/ Bridge Michigan"
 skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Public Media/Detroit PBS"] <- "Detroit Public Media / Detroit PBS"
@@ -69,6 +81,27 @@ skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Partnership for Ed
 skillman_survey$resp_org[skillman_survey$resp_org == "EPIC - MSU"] <- "Education Policy Innovation Collaborative (EPIC) - Michigan State University"
 skillman_survey$resp_org[skillman_survey$resp_org == "Crain's Detroit Business"] <- "Crain’s Business Detroit"
 skillman_survey$resp_org[skillman_survey$resp_org == "Institute for Law and Organizing"] <- "Detroit Institute for Law and Organizing"
+skillman_survey$resp_org[skillman_survey$resp_org == "Gleaners community Food Bank"] <- "Gleaners Community Food Bank"
+skillman_survey$resp_org[skillman_survey$resp_org == "BUF of MI (Black United Fund of Michigan"] <- "Black United Fund of Michigan"
+skillman_survey$resp_org[skillman_survey$resp_org == "University of Michigan"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "University of Michigan, Michigan Engineering Zone"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "University of Michigan Museum of Natural History"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "University of Michigan, School of Music, Theatre & Dance, Office of Engagement & Outreach"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "University of Michigan - Ann Arbor GEAR UP"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "Stamps School of Art & Design, University of Michigan"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "U-M Center for Educational Outreach"] <- "University of Michigan – Ann Arbor"
+skillman_survey$resp_org[skillman_survey$resp_org == "MiPACC"] <- "MiPAAC"
+skillman_survey$resp_org[skillman_survey$resp_org == "MIPAAC"] <- "MiPAAC"
+skillman_survey$resp_org[skillman_survey$resp_org == "DETROIT RIVER PROJECT"] <- "Detroit River Project"
+skillman_survey$resp_org[skillman_survey$resp_org == "Developing Kingdoms In Different Stages dba Developing K.I.D.S."] <- "Developing K.I.D.S."
+skillman_survey$resp_org[skillman_survey$resp_org == "Wayne State University English Department"] <- "Wayne State University"
+skillman_survey$resp_org[skillman_survey$resp_org == "Detroit Academy of Arts and Sciences, Detroit Early Middle College, Academy Management Company"] <- "Detroit Academy of Arts and Sciences"
+skillman_survey$resp_org[skillman_survey$resp_org == "Neighborhood Vitality Index (D3 and JFM)"] <- "Neighborhood Vitality Index"
+skillman_survey$resp_org[skillman_survey$resp_org == "Michigan Association of Public School Academies"] <- "Michigan Association of Public School Academies (MAPSA)"
+skillman_survey$resp_org[skillman_survey$resp_org == "Student Advocacy Center of Michigan"] <- "Student Advocacy Center"
+
+
+
 
 
 ### Creating dataframe with level 1 interaction
@@ -181,6 +214,18 @@ edgelist$level[is.na(edgelist$level)] <- 1
 # Starting from list of orgs in survey
 survey_orgs <- read_csv('/Users/Christian/Desktop/Sankofa/Skillman/Survey/Survey Org List.csv')
 
+# Dropping non-respondents with no connections
+
+# Great Lakes Equity Center
+survey_orgs <- survey_orgs %>% filter(Org_ID != 55)
+
+# WestEd
+survey_orgs <- survey_orgs %>% filter(Org_ID != 129)
+
+# Young Nation
+survey_orgs <- survey_orgs %>% filter(Org_ID != 133)
+
+
 
 # Now pulling list from to
 response_orgs <- edgelist %>%
@@ -226,13 +271,41 @@ org_list$Sector <- ifelse(is.na(org_list$Sector), org_list$resp_org_cat, org_lis
 
 # Manually labeling missing values
 org_list$Sector[org_list$Organization == "826michigan"] <- "Youth Serving Organizations"
-org_list$Sector[org_list$Organization == "College for Creative Studies, Precollege and Continuing Studies Dept."] <- "Institutes of Higher Education"
+org_list$Sector[org_list$Organization == "College for Creative Studies"] <- "Institutes of Higher Education"
 org_list$Sector[org_list$Organization == "North End Woodward Community Coalition (NEWCC)"] <- "Family and Community Organizations"
 org_list$Sector[org_list$Organization == "Teach Plus Michigan"] <- "Policy and Advocacy Organizations"
 org_list$Sector[org_list$Organization == "Detroit Regional Chamber"] <- "Business and Industry Organizations"
 org_list$Sector[org_list$Organization == "Detroit Partnership for Education Equity & Research (PEER) - Wayne State University"] <- "Research and Data Organizations"
 org_list$Sector[org_list$Organization == "Urban Neighborhood Initiatives"] <- "Family and Community Organizations"
 org_list$Sector[org_list$Organization == "Detroit Institute for Law and Organizing"] <- "Policy and Advocacy Organizations"
+org_list$Sector[org_list$Organization == "People In Education"] <- "Technical Assistance Providers"
+org_list$Sector[org_list$Organization == "Autism Alliance of Michigan"] <- "Policy and Advocacy Organizations"
+org_list$Sector[org_list$Organization == "Communities In Schools Michigan"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "DBG Detroit"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "Detroit PAL"] <- "Youth Serving Organizations"
+org_list$Sector[org_list$Organization == "Gleaners Community Food Bank"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "Henry Ford Learning Institute"] <- "K-12 Education Systems"
+org_list$Sector[org_list$Organization == "Michigan Alliance for Families"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "Michigan Association of Public School Academies (MAPSA)"] <- "K-12 Education Systems"
+org_list$Sector[org_list$Organization == "Michigan Education Justice Coalition (MEJC)"] <- "K-12 Education Systems Member Organizations and Unions"
+org_list$Sector[org_list$Organization == "MiPAAC"] <- "Policy and Advocacy Organizations"
+org_list$Sector[org_list$Organization == "Steen Foundation"] <- "Investors and Foundations"
+org_list$Sector[org_list$Organization == "Student Advocacy Center"] <- "K-12 Education Systems Member Organizations and Unions"
+org_list$Sector[org_list$Organization == "University of Michigan – Ann Arbor"] <- "Institutes of Higher Education"
+org_list$Sector[org_list$Organization == "Urban Alliance"] <- "Family and Community Organizations"
+org_list$Sector[org_list$Organization == "Intend to Attend (I2A)"] <- "Institutes of Higher Education"
+org_list$Sector[org_list$Organization == "C S Partners"] <- "Consultants"
+org_list$Sector[org_list$Organization == "I Teach Chess"] <- "Business and Industry Organizations"
+org_list$Sector[org_list$Organization == "Abdnour Weiker, LLP"] <- "Consultants"
+org_list$Sector[org_list$Organization == "JFM Consulting Group"] <- "Consultants"
+org_list$Sector[org_list$Organization == "Archetype Consulting, LLC"] <- "Consultants"
+org_list$Sector[org_list$Organization == "Academy Management Company"] <- "Consultants"
+
+
+
+
+# Renaming Union Sector
+org_list$Sector[org_list$Sector == "K-12 Education Systems Member Organizations and Unions"] <- "K-12 Member Organizations and Unions"
 
 
 # Dropping survey question column
@@ -265,13 +338,13 @@ edges <- edges %>% mutate(across(c(row_id), ~  . - 1)) %>%
 
 ## Generating a few summary network statistics
 
-# Responses - 65
+# Responses - 118
 response_orgs %>% n_distinct()
 
-# Network size - 174 organizations
+# Network size - 224 organizations
 nrow(org_list)
 
-# Density (connections / possible connections) - 6.33%
+# Density (connections / possible connections) - 6.48%
 nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))
 
 # Degree centrality
@@ -312,6 +385,10 @@ org_list$betweenness <- ifelse(is.na(org_list$betweenness), 0, org_list$betweenn
 
 org_list$closeness <- ifelse(is.na(org_list$closeness), 0, org_list$closeness)
 
+
+# Removing duplicate rows from Org List table
+
+org_list <- org_list %>% distinct(Organization, .keep_all = T)
 
 
 ## Prepping for visNetwork package
@@ -437,12 +514,14 @@ skillman_vertices <- skillman_vertices %>% left_join(edge_count_sector, by = c("
 
 skillman_vertices$within_sector[is.na(skillman_vertices$within_sector)] <- 0
 
+write.csv(skillman_vertices, "/Users/Christian/Desktop/Sankofa/Skillman/Survey/skillman vertices.csv")
+
 
 legend_nodes <- data.frame(
   label = c("Sector",
             "Youth Serving Organizations",
             "Family and Community Organizations",
-            "K-12 Education Systems Member Organizations and Unions",
+            "K-12 Member Organizations and Unions",
             "K-12 Education Systems",
             "Charter Authorizers",
             "Institutes of Higher Education",
@@ -454,7 +533,8 @@ legend_nodes <- data.frame(
             "Workforce Pathways and Training",
             "Research and Data Organizations",
             "Technical Assistance Providers",
-            "Media"), 
+            "Media",
+            "Consultants"), 
   color = c("white",
             "darkblue",
             "blue",
@@ -470,7 +550,8 @@ legend_nodes <- data.frame(
             "brown",
             "gold",
             "yellow",
-            "deeppink"),
+            "deeppink",
+            "black"),
   shape = c("dot",
             "dot",
             "dot",
@@ -486,9 +567,10 @@ legend_nodes <- data.frame(
             "dot",
             "dot",
             "dot",
+            "dot",
             "dot"),
-  size = c(30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30),
-  font.size = c(30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20)
+  size = c(30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30),
+  font.size = c(30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20)
 )
 ```
 
@@ -496,7 +578,7 @@ legend_nodes <- data.frame(
 The Detroit K–12 Education Ecosystem Survey was first distributed on October 21, 2025. As of `r formatted_date`, we have received responses from `r response_orgs %>% n_distinct()` unique organizations. Based on desk review and contributions from survey respondents, the known network includes `r nrow(org_list)` organizations. Across this network, there were a total of `r nrow(edges)` unique connections between any two organizations, yielding a network density of `r round(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))*100, digits = 2)`%. This means that there is a `r round(nrow(edges)/(nrow(org_list)*(nrow(org_list)-1))*100, digits = 2)`% chance that any two organizations interacted with one another.
 
 ## Sector Statistics
-The organizations in the network were grouped by their roles into one of 15 categories, what we refer to as "sectors" on this page. These sectors include everything from public and charter K-12 education systems, youth and community organizations, to government entities, investors, and foundations - and many more. The tables below present summary statistics by sector.
+The organizations in the network were grouped by their roles into one of 16 categories, what we refer to as "sectors" on this page. These sectors include everything from public and charter K-12 education systems, youth and community organizations, to government entities, investors, and foundations - and many more. The tables below present summary statistics by sector.
 
 ### Connections
 In the survey, we asked respondents to indicate whether they had interacted with each organization we identified as being a part of the network within the last year. These interactions were separated into two levels:
@@ -663,6 +745,12 @@ sector_edges <- sector_edges %>%
   select(from, to, width, dashes)
 
 skillman_edges_2 <- skillman_edges %>% filter(dashes == FALSE)
+
+sector_edges_swap <- sector_edges %>%
+  filter(dashes == "FALSE") %>% 
+  mutate(width = width/5)
+
+sector_vertices_lab <- sector_vertices
 ```
 
 ```{r Network Map at Sector-Level, echo=FALSE}
@@ -680,7 +768,7 @@ visNetwork(sector_vertices, sector_edges) %>%
                                      main = "Select by Sector")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
-  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>%
   visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
   visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
   visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
@@ -693,10 +781,61 @@ visNetwork(sector_vertices, sector_edges) %>%
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
   visGroups(groupname = "Media", color = "deeppink") %>%
+  visGroups(groupname = "Consultants", color = "black") %>%
   visPhysics(solver = "forceAtlas2Based", forceAtlas2Based = list(gravitationalConstant = -40)) %>% 
   visNodes(shape = "dot",
            scaling = list(min = 20, max = 50),
            labelHighlightBold = TRUE)
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+
+#### Circular Sector-Level Map
+```{r Circular Network Map at Sector-Level, echo=FALSE}
+visNetwork(sector_vertices_lab, sector_edges_swap) %>% 
+  visOptions(width = 625,
+             height = 600,
+             highlightNearest = list(enabled = TRUE, hover = TRUE,
+                                     degree = 1, labelOnly = FALSE),
+             nodesIdSelection = list(enabled = TRUE, useLabels = TRUE,
+                                     style = 'width: 300px; height: 26px;
+                                     background: #f8f8f8;
+                                     color: darkblue;
+                                     border:none;
+                                     outline:none;',
+                                     main = "Select by Sector")) %>%
+  visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
+  visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>%
+  visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
+  visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
+  visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
+  visGroups(groupname = "City and County Government", color = "darkgreen") %>% 
+  visGroups(groupname = "State Policymakers and Agencies", color = "green") %>% 
+  visGroups(groupname = "Policy and Advocacy Organizations", color = "coral") %>% 
+  visGroups(groupname = "Investors and Foundations", color = "darkred") %>% 
+  visGroups(groupname = "Business and Industry Organizations", color = "red") %>% 
+  visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
+  visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
+  visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
+  visGroups(groupname = "Media", color = "deeppink") %>%
+  visGroups(groupname = "Consultants", color = "black") %>%
+  visIgraphLayout(layout = "layout_in_circle") %>%
+  visEdges(smooth = list(enabled = FALSE),
+           scaling = list(min = 0.01, max = 0.05)) %>% 
+  visNodes(shape = "dot",
+           scaling = list(min = 10, max = 30),
+           labelHighlightBold = TRUE,
+           font = list(background = "white"))
 ```
 
 <br>
@@ -736,7 +875,7 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
                                main = "Select by Policy Priority")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
-  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>% 
   visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
   visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
   visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
@@ -748,7 +887,8 @@ visNetwork(skillman_vert_scale, skillman_edges) %>%
   visGroups(groupname = "Workforce Pathways and Training", color = "brown") %>% 
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
-  visGroups(groupname = "Media", color = "deeppink") %>% 
+  visGroups(groupname = "Media", color = "deeppink") %>%
+  visGroups(groupname = "Consultants", color = "black") %>%
   visLegend(addNodes = legend_nodes,
             useGroups = FALSE,
             width = 0.2,
@@ -796,7 +936,7 @@ visNetwork(skillman_vert_scale, skillman_edges_2) %>%
                                main = "Select by Policy Priority")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
-  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>% 
   visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
   visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
   visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
@@ -809,6 +949,7 @@ visNetwork(skillman_vert_scale, skillman_edges_2) %>%
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
   visGroups(groupname = "Media", color = "deeppink") %>% 
+  visGroups(groupname = "Consultants", color = "black") %>%
   visLegend(addNodes = legend_nodes,
             useGroups = FALSE,
             width = 0.2,
@@ -950,7 +1091,8 @@ skillman_vertices <- skillman_vertices %>% left_join(edge_count_grantee, by = c(
 
 skillman_vertices$grant_to_grant[is.na(skillman_vertices$grant_to_grant)] <- 0
 
-skill_vert_label_grant <- skill_vert_label %>% left_join(orgs_by_grant_status, by = "id") %>% 
+skill_vert_label_grant <- skill_vert_label %>%
+  left_join(orgs_by_grant_status, by = "id") %>% 
   select(-label.y) %>% 
   mutate() %>% 
   rename(label = label.x) %>% 
@@ -991,7 +1133,7 @@ legend_nodes_grant <- data.frame(
   label = c("Sector",
             "Youth Serving Organizations",
             "Family and Community Organizations",
-            "K-12 Education Systems Member Organizations and Unions",
+            "K-12 Member Organizations and Unions",
             "K-12 Education Systems",
             "Charter Authorizers",
             "Institutes of Higher Education",
@@ -1004,6 +1146,7 @@ legend_nodes_grant <- data.frame(
             "Research and Data Organizations",
             "Technical Assistance Providers",
             "Media",
+            "Consultants",
             "Non-Grantee"), 
   color = c("white",
             "darkblue",
@@ -1021,6 +1164,7 @@ legend_nodes_grant <- data.frame(
             "gold",
             "yellow",
             "deeppink",
+            "black",
             "grey"),
   shape = c("dot",
             "dot",
@@ -1038,9 +1182,10 @@ legend_nodes_grant <- data.frame(
             "dot",
             "dot",
             "dot",
+            "dot",
             "dot"),
-  size = c(30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 15),
-  font.size = c(30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 10)
+  size = c(30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30),
+  font.size = c(30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20)
 )
 
 ```
@@ -1176,7 +1321,7 @@ visNetwork(skillman_vert_scale_grant, skillman_edges) %>%
                                main = "Select by Policy Priority")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
-  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>% 
   visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
   visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
   visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
@@ -1189,6 +1334,7 @@ visNetwork(skillman_vert_scale_grant, skillman_edges) %>%
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
   visGroups(groupname = "Media", color = "deeppink") %>% 
+  visGroups(groupname = "Consultants", color = "black") %>%
   visGroups(groupname = "Non-Grantee", color = "grey") %>% 
   visLegend(addNodes = legend_nodes_grant,
             useGroups = FALSE,
@@ -1236,7 +1382,7 @@ visNetwork(skillman_vert_scale_grant_only, skillman_edges_grant_only) %>%
                                main = "Select by Policy Priority")) %>%
   visGroups(groupname = "Youth Serving Organizations", color = "darkblue") %>% 
   visGroups(groupname = "Family and Community Organizations", color = "blue") %>% 
-  visGroups(groupname = "K-12 Education Systems Member Organizations and Unions", color = "lightblue") %>% 
+  visGroups(groupname = "K-12 Member Organizations and Unions", color = "lightblue") %>% 
   visGroups(groupname = "K-12 Education Systems", color = "purple") %>% 
   visGroups(groupname = "Charter Authorizers", color = "darkorchid") %>% 
   visGroups(groupname = "Institutes of Higher Education", color = "orchid") %>% 
@@ -1249,6 +1395,7 @@ visNetwork(skillman_vert_scale_grant_only, skillman_edges_grant_only) %>%
   visGroups(groupname = "Research and Data Organizations", color = "gold") %>% 
   visGroups(groupname = "Technical Assistance Providers", color = "yellow") %>% 
   visGroups(groupname = "Media", color = "deeppink") %>% 
+  visGroups(groupname = "Consultants", color = "black") %>%
   visLegend(addNodes = legend_nodes,
             useGroups = FALSE,
             width = 0.2,
